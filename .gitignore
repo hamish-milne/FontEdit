@@ -183,6 +183,12 @@ UpgradeLog*.htm
 # Microsoft Fakes
 FakesAssemblies/
 
+# Unity import
+Library/
+Temp/
+*.mdb
+*.dll
+
 # =========================
 # Operating System Files
 # =========================
