@@ -19,14 +19,24 @@ namespace FontEdit
 		[MenuItem("Window/FontEdit")]
 		public static void OpenWindow()
 		{
-			GetWindow<FontEditWindow>("FontEdit", true,
+			GetWindow();
+		}
+
+		public static FontEditWindow GetWindow()
+		{
+			return GetWindow<FontEditWindow>("FontEdit", true,
 				AppDomain.CurrentDomain.GetAssemblies()
 					.First(a => a.GetName().Name == "UnityEditor")
 					.GetType("UnityEditor.SceneView"));
 		}
 
-		[SerializeField]
-		protected Font selectedFont;
+		public static FontEditWindow Instance { get; private set; }
+
+		public static Font SelectedFont
+		{
+			get { return Selection.activeObject as Font; }
+			set { Selection.activeObject = value; }
+		}
 
 		[NonSerialized]
 		private Font storedFont;
@@ -41,18 +51,26 @@ namespace FontEdit
 		protected bool showAll;
 
 		[SerializeField]
-		protected int selectedIndex = -1;
+		protected int selectedChar = -1;
+
+		public int GetSelectionIndex()
+		{
+			for(int i = 0; i < chars.Length; i++)
+				if (chars[i].index == selectedChar)
+					return i;
+			return -1;
+		}
 
 		const float margin = 10f;
 		protected Rect WindowRect => new Rect(margin, margin, position.width - margin*2f, position.height - margin*2f);
 
 		void GetCharacters()
 		{
-			if (selectedFont == null)
+			if (SelectedFont == null)
 				chars = null;
-			else if (storedFont != selectedFont || chars == null || storedFont.characterInfo.Length != chars.Length)
+			else if (storedFont != SelectedFont || chars == null || storedFont.characterInfo.Length != chars.Length)
 			{
-				var characterInfo = selectedFont.characterInfo;
+				var characterInfo = SelectedFont.characterInfo;
 				chars = new FontCharacter[characterInfo.Length];
 				for (int i = 0; i < chars.Length; i++)
 				{
@@ -68,7 +86,7 @@ namespace FontEdit
 						rotated = Math.Abs(c.uvTopLeft.x - c.uvTopRight.x) < float.Epsilon
 					};
 				}
-				storedFont = selectedFont;
+				storedFont = SelectedFont;
 				selectedRect = null;
 			}
 		}
@@ -76,9 +94,9 @@ namespace FontEdit
 		public void Apply()
 		{
 			GetCharacters();
-			if (selectedFont != null)
+			if (SelectedFont != null)
 			{
-				var assetPath = AssetDatabase.GetAssetPath(selectedFont);
+				var assetPath = AssetDatabase.GetAssetPath(SelectedFont);
                 var ext = Path.GetExtension(assetPath)?.ToLower();
 				if (ext == ".ttf" || ext == ".otf")
 				{
@@ -94,19 +112,21 @@ namespace FontEdit
 							var path = basePath + ".fontsettings";
 							while (File.Exists(path))
 								path = basePath + (i++) + ".fontsettings";
-							selectedFont = ((TrueTypeFontImporter) AssetImporter.GetAtPath(assetPath)).GenerateEditableFont(path);
+							SelectedFont = ((TrueTypeFontImporter) AssetImporter.GetAtPath(assetPath)).GenerateEditableFont(path);
 							break;
 						case 1:
 							return;
 					}
 				}
-				selectedFont.characterInfo = selectedFont.characterInfo.Join(chars, ci => ci.index, fc => fc.index, (ci, fc) =>
+				SelectedFont.characterInfo = SelectedFont.characterInfo.Join(chars, ci => ci.index, fc => fc.index, (ci, fc) =>
 				{
 					ci.uvBottomLeft = fc.uvRect.min;
 					ci.uvTopRight = fc.uvRect.max;
+#pragma warning disable 618 // There's no way to set the flipped state without this field :/
+					ci.flipped = fc.rotated;
+#pragma warning restore 618
 					return ci;
 				}).ToArray();
-				Debug.Log("Applied font");
 				chars = null;
 			}
 		}
@@ -129,8 +149,7 @@ namespace FontEdit
 
 		protected virtual void OnEnable()
 		{
-			Selection.activeObject = this;
-			name = titleContent.text;
+			Instance = this;
 		}
 
 		[Flags]
@@ -242,7 +261,7 @@ namespace FontEdit
 				axisX);
 		}
 
-		protected Texture Texture => selectedFont.material?.mainTexture;
+		public Texture Texture => SelectedFont.material?.mainTexture;
 
 		protected float Scale => Mathf.Min(WindowRect.width, WindowRect.height)/Mathf.Max(Texture.width, Texture.height);
 
@@ -284,15 +303,14 @@ namespace FontEdit
 		{
 			InitTextures();
 
-			var labelStyle = EditorStyles.boldLabel;
-			labelStyle.alignment = TextAnchor.MiddleCenter;
+			var labelStyle = new GUIStyle(EditorStyles.boldLabel) {alignment = TextAnchor.MiddleCenter};
 
-			if (Event.current.type == EventType.mouseDown && Selection.activeObject != this)
+			/*if (Event.current.type == EventType.mouseDown && Selection.activeObject != this)
 			{
 				Selection.activeObject = this;
 				return;
-			}
-			if (selectedFont == null)
+			}*/
+			if (SelectedFont == null)
 			{
 				EditorGUI.LabelField(WindowRect, "No font selected", labelStyle);
 			}
@@ -311,7 +329,7 @@ namespace FontEdit
 					
 
 					// Handle move & resize
-					if (c.index == selectedIndex)
+					if (c.index == selectedChar)
 					{
 						selectedRect = uiRect;
 						var nr = Normalize(uiRect);
@@ -345,7 +363,7 @@ namespace FontEdit
 
 						if (dragging != GrabCorner.None)
 						{
-							DrawSelection(uiRect, false);
+							DrawSelection(uiRect, c.rotated);
 							if (Event.current.type == EventType.mouseDrag)
 							{
 								var d = dragging;
@@ -371,11 +389,11 @@ namespace FontEdit
 					// Draw highlight (mouse hover)
 					if (dragging == GrabCorner.None)
 					{
-						if (c.index == selectedIndex || uiRect.Contains(Event.current.mousePosition, true))
+						if (c.index == selectedChar || uiRect.Contains(Event.current.mousePosition, true))
 						{
 							DrawSelection(uiRect, c.rotated);
 							if (Event.current.type == EventType.mouseDown && !(selectedRect?.Contains(Event.current.mousePosition, true) ?? false))
-								selectedIndex = c.index;
+								selectedChar = c.index;
 						}
 						else if (showAll)
 						{
