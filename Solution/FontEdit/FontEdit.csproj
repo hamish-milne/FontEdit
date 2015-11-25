@@ -43,6 +43,7 @@
   <ItemGroup>
     <Compile Include="FontEditInspector.cs" />
     <Compile Include="FontEditWindow.cs" />
+    <Compile Include="TestPanel.cs" />
     <Compile Include="UVEditor.cs" />
     <Compile Include="VertEditor.cs" />
     <Compile Include="GrabHandles.cs" />

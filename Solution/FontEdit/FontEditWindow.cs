@@ -105,9 +105,10 @@ namespace FontEdit
 
 		public int GetSelectionIndex()
 		{
-			for(int i = 0; i < chars.Length; i++)
-				if (chars[i].index == selectedChar)
-					return i;
+			if (chars != null)
+				for(int i = 0; i < chars.Length; i++)
+					if (chars[i].index == selectedChar)
+						return i;
 			return -1;
 		}
 
@@ -293,6 +294,9 @@ namespace FontEdit
 						break;
 					case WindowMode.Vert:
 						DrawVertEditor();
+						break;
+					case WindowMode.Test:
+						DrawTest();
 						break;
 				}
 			}

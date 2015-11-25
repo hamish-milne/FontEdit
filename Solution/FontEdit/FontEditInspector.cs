@@ -11,8 +11,8 @@ namespace FontEdit
 		private static readonly string[] properties =
 		{
 			"FontSize", "Ascent",
-			"Kerning", "LineSpacing", "CharacterSpacing", "CharacterPadding",
-			"PixelScale", "DefaultMaterial", /*"Texture",*/
+			"Kerning", "LineSpacing",
+			"DefaultMaterial",
 			//"FontNames", "FallbackFonts" // Arrays don't directly work
 		};
 
