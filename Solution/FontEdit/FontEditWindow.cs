@@ -10,12 +10,29 @@ namespace FontEdit
 	public struct FontCharacter
 	{
 		public int index;
-		public Rect uvRect;
+		public Rect uv, vert;
 		public bool rotated;
+		public float advance;
 	}
 
-	public class FontEditWindow : EditorWindow
+	public enum WindowMode
 	{
+		UV,
+		Vert,
+		Test,
+	}
+
+	public enum DisplayUnit
+	{
+		Coords,
+		Pixels,
+	}
+
+	public partial class FontEditWindow : EditorWindow
+	{
+		// =========================
+		// ==== Window handling ====
+		// =========================
 		[MenuItem("Window/FontEdit")]
 		public static void OpenWindow()
 		{
@@ -29,8 +46,24 @@ namespace FontEdit
 					.First(a => a.GetName().Name == "UnityEditor")
 					.GetType("UnityEditor.SceneView"));
 		}
-
 		public static FontEditWindow Instance { get; private set; }
+
+		// ================
+		// ==== Fields ====
+		// ================
+		[NonSerialized] private Font storedFont;
+		[SerializeField, HideInInspector] protected FontCharacter[] chars;
+		[SerializeField, HideInInspector] protected Texture2D selection, handles, axisX, axisY;
+		[SerializeField] protected bool showAll;
+		[SerializeField] protected int selectedChar = -1;
+		[SerializeField] protected WindowMode windowMode;
+		[SerializeField] protected DisplayUnit displayUnit;
+
+		// ====================
+		// ==== Properties ====
+		// ====================
+		const float margin = 10f;
+		protected Rect WindowRect => new Rect(margin, margin, position.width - margin * 2f, position.height - margin * 2f);
 
 		public static Font SelectedFont
 		{
@@ -38,20 +71,37 @@ namespace FontEdit
 			set { Selection.activeObject = value; }
 		}
 
-		[NonSerialized]
-		private Font storedFont;
+		public WindowMode WindowMode
+		{
+			get { return windowMode; }
+			set { windowMode = value; }
+		}
 
-		[SerializeField, HideInInspector]
-		protected FontCharacter[] chars;
+		public Texture2D Texture => SelectedFont.material?.mainTexture as Texture2D;
 
-		[SerializeField, HideInInspector]
-		protected Texture2D selection, handles, axisX, axisY;
+		protected float Scale => Mathf.Min(WindowRect.width, WindowRect.height) / Mathf.Max(Texture.width, Texture.height);
 
-		[SerializeField]
-		protected bool showAll;
+		protected Rect TextureRect => GetCenterRect(Texture.width * Scale, Texture.height * Scale);
 
-		[SerializeField]
-		protected int selectedChar = -1;
+		// ========================
+		// ==== Common methods ====
+		// ========================
+		Rect GetCenterRect(float width, float height)
+		{
+			return new Rect(
+				(WindowRect.xMin + WindowRect.xMax - width) / 2f,
+				(WindowRect.yMin + WindowRect.yMax - height) / 2f,
+				width, height);
+		}
+
+		static Rect Normalize(Rect r)
+		{
+			return new Rect(
+				r.width >= 0f ? r.xMin : r.xMax,
+				r.height >= 0f ? r.yMin : r.yMax,
+				Mathf.Abs(r.width),
+				Mathf.Abs(r.height));
+		}
 
 		public int GetSelectionIndex()
 		{
@@ -61,29 +111,41 @@ namespace FontEdit
 			return -1;
 		}
 
-		const float margin = 10f;
-		protected Rect WindowRect => new Rect(margin, margin, position.width - margin*2f, position.height - margin*2f);
+		static float GetFontAscent()
+		{
+			return (new SerializedObject(SelectedFont)).FindProperty("m_Ascent").floatValue;
+		}
 
+		// ============================
+		// ==== Store and retrieve ====
+		// ============================
 		void GetCharacters()
 		{
 			if (SelectedFont == null)
 				chars = null;
-			else if (storedFont != SelectedFont || chars == null || storedFont.characterInfo.Length != chars.Length)
+			else if (storedFont != SelectedFont || chars == null || chars.Length == 0)
 			{
 				var characterInfo = SelectedFont.characterInfo;
 				chars = new FontCharacter[characterInfo.Length];
+				var ascent = GetFontAscent();
 				for (int i = 0; i < chars.Length; i++)
 				{
 					var c = characterInfo[i];
 					chars[i] = new FontCharacter
 					{
 						index = c.index,
-						uvRect = new Rect(
+						uv = new Rect(
 							c.uvBottomLeft.x,
 							c.uvBottomLeft.y,
 							c.uvTopRight.x - c.uvBottomLeft.x,
 							c.uvTopRight.y - c.uvBottomLeft.y),
-						rotated = Math.Abs(c.uvTopLeft.x - c.uvTopRight.x) < float.Epsilon
+#pragma warning disable 618
+						// The normal vert properties are mixed in with an inaccessible 'ascent' field
+						// that is presumably set by Unity when it retrieves the data
+						vert = new Rect(c.vert.x, c.vert.y + ascent, c.vert.width, c.vert.height),
+#pragma warning restore 618
+						rotated = Math.Abs(c.uvTopLeft.x - c.uvTopRight.x) < float.Epsilon,
+						advance = c.advance
 					};
 				}
 				storedFont = SelectedFont;
@@ -118,173 +180,69 @@ namespace FontEdit
 							return;
 					}
 				}
-				SelectedFont.characterInfo = SelectedFont.characterInfo.Join(chars, ci => ci.index, fc => fc.index, (ci, fc) =>
+				var ascent = GetFontAscent();
+				SelectedFont.characterInfo = chars.Select(fc => new CharacterInfo
 				{
-					ci.uvBottomLeft = fc.uvRect.min;
-					ci.uvTopRight = fc.uvRect.max;
-#pragma warning disable 618 // There's no way to set the flipped state without this field :/
-					ci.flipped = fc.rotated;
+					index = fc.index,
+					uvBottomLeft = fc.uv.min,
+					uvTopRight = fc.uv.max,
+#pragma warning disable 618
+					// There's no way to set the flipped state without this field :/
+					flipped = fc.rotated,
+					// The normal vert properties are mixed in with an inaccessible 'ascent' field
+					// that is presumably set by Unity when it retrieves the data
+					// (As well as being incredibly difficult to change in general)
+					vert = new Rect(fc.vert.x, fc.vert.y - ascent, fc.vert.width, fc.vert.height),
 #pragma warning restore 618
-					return ci;
-				}).ToArray();
+					advance = (int)fc.advance,
+			}).ToArray();
 				chars = null;
+				EditorUtility.SetDirty(SelectedFont);
 			}
 		}
 
-		Rect GetCenterRect(float width, float height)
+		public void Revert()
 		{
-			return new Rect(
-				(WindowRect.xMin + WindowRect.xMax - width) / 2f,
-				(WindowRect.yMin + WindowRect.yMax - height) / 2f,
-				width, height);
+			chars = null;
 		}
 
+		// ========================
+		// ==== Add and remove ====
+		// ========================
+		public int AddSelected()
+		{
+			if (GetSelectionIndex() >= 0)
+				throw new InvalidOperationException();
+			var ret = chars.Length;
+			Array.Resize(ref chars, ret + 1);
+			chars[ret].index = selectedChar;
+			chars[ret].uv = new Rect(0.375f, 0.375f, 0.25f, 0.25f);
+			return ret;
+		}
+
+		public void DeleteSelected()
+		{
+			var i = GetSelectionIndex();
+			if (i < 0)
+				throw new InvalidOperationException();
+			var newArray = chars;
+			var newLength = newArray.Length - 1;
+			for (; i < newLength; i++)
+				newArray[i] = newArray[i + 1];
+			Array.Resize(ref newArray, newLength);
+			chars = newArray;
+			selectedChar = -1;
+		}
+
+		// ==========================
+		// ==== Texture creation ====
+		// ==========================
 		static void CreateColorPixel(Color c, out Texture2D tex)
 		{
 			tex = new Texture2D(1, 1);
 			tex.SetPixel(0, 0, c);
 			tex.wrapMode = TextureWrapMode.Repeat;
 			tex.Apply();
-		}
-
-		protected virtual void OnEnable()
-		{
-			Instance = this;
-		}
-
-		[Flags]
-		enum GrabCorner
-		{
-			None = 0,
-			XMin = 1,
-			XMax = 2,
-			YMin = 4,
-			YMax = 8,
-		}
-
-		static bool HasCorner(GrabCorner c, GrabCorner f)
-		{
-			return (c & f) != GrabCorner.None;
-		}
-
-		private GrabCorner dragging;
-		private Rect? selectedRect;
-
-		static Rect Normalize(Rect r)
-		{
-			return new Rect(
-				r.width >= 0f ? r.xMin : r.xMax,
-				r.height >= 0f ? r.yMin : r.yMax,
-				Mathf.Abs(r.width),
-				Mathf.Abs(r.height));
-		}
-
-		struct GrabHandle
-		{
-			public Func<Rect, Rect> rect;
-			public MouseCursor cursor;
-			public GrabCorner corners;
-		}
-
-		private const float grabBorder = 5f;
-		static readonly GrabHandle[] grabHandles = 
-		{
-			new GrabHandle // Top left
-			{
-				rect = r => new Rect(r.position, new Vector2(grabBorder, grabBorder)),
-				cursor = MouseCursor.ResizeUpLeft,
-				corners = GrabCorner.XMin | GrabCorner.YMin
-			},
-			new GrabHandle // Top
-			{
-				rect = r => new Rect(r.x + grabBorder, r.y, r.width - (grabBorder*2f), grabBorder),
-				cursor = MouseCursor.ResizeVertical,
-				corners = GrabCorner.YMin
-			},
-			new GrabHandle // Top right
-			{
-				rect = r => new Rect(r.xMax - grabBorder, r.y, grabBorder, grabBorder),
-				cursor = MouseCursor.ResizeUpRight,
-				corners = GrabCorner.XMax | GrabCorner.YMin
-			},
-			new GrabHandle // Left
-			{
-				rect = r => new Rect(r.x, r.y + grabBorder, grabBorder, r.height - (grabBorder*2f)),
-				cursor = MouseCursor.ResizeHorizontal,
-				corners = GrabCorner.XMin
-			},
-			new GrabHandle // Bottom left
-			{
-				rect = r => new Rect(r.x, r.yMax - grabBorder, grabBorder, grabBorder),
-				cursor = MouseCursor.ResizeUpRight,
-				corners = GrabCorner.XMin | GrabCorner.YMax
-			},
-			new GrabHandle // Bottom
-			{
-				rect = r => new Rect(r.x + grabBorder, r.yMax - grabBorder, r.width - (grabBorder*2f), grabBorder),
-				cursor = MouseCursor.ResizeVertical,
-				corners = GrabCorner.YMax
-			},
-			new GrabHandle // Bottom right
-			{
-				rect = r => new Rect(r.xMax - grabBorder, r.yMax - grabBorder, grabBorder, grabBorder),
-				cursor = MouseCursor.ResizeUpLeft,
-				corners = GrabCorner.XMax | GrabCorner.YMax
-			},
-			new GrabHandle // Right
-			{
-				rect = r => new Rect(r.xMax - grabBorder, r.y + grabBorder, grabBorder, r.height - (grabBorder*2f)),
-				cursor = MouseCursor.ResizeHorizontal,
-				corners = GrabCorner.XMax
-			},
-			new GrabHandle // Center
-			{
-				rect = r => new Rect(r.x + grabBorder, r.y + grabBorder, r.width - (grabBorder*2f), r.height - (grabBorder*2f)),
-				cursor = MouseCursor.MoveArrow,
-				corners = GrabCorner.XMin | GrabCorner.XMax | GrabCorner.YMin | GrabCorner.YMax
-			},
-		};
-
-		void DrawSelection(Rect r, bool rotated)
-		{
-			GUI.DrawTexture(r, selection);
-
-			const float axisWidth = 2f;
-			const float axisLength = 20f;
-			var width = Mathf.Sign(r.width) * Mathf.Min(Mathf.Abs(r.width), axisLength);
-			var height = Mathf.Sign(r.height) * Mathf.Min(Mathf.Abs(r.height), axisLength);
-			GUI.DrawTexture(new Rect(r.position,
-				new Vector2(rotated ? width : axisWidth, rotated ? axisWidth : height)),
-				axisY);
-			GUI.DrawTexture(new Rect(r.position,
-				new Vector2(rotated ? axisWidth : width, rotated ? height : axisWidth)),
-				axisX);
-		}
-
-		public Texture Texture => SelectedFont.material?.mainTexture;
-
-		protected float Scale => Mathf.Min(WindowRect.width, WindowRect.height)/Mathf.Max(Texture.width, Texture.height);
-
-		protected Rect TextureRect => GetCenterRect(Texture.width*Scale, Texture.height*Scale);
-
-		Rect GetUiRect(Rect r)
-		{
-			var textureRect = TextureRect;
-			r.x = textureRect.x + (r.x * textureRect.width);
-			r.y = textureRect.y + ((1f - r.y) * textureRect.height);
-			r.width *= textureRect.width;
-			r.height *= -textureRect.height;
-			return r;
-		}
-
-		Rect GetUvRect(Rect r)
-		{
-			var textureRect = TextureRect;
-			r.height /= -textureRect.height;
-			r.width /= textureRect.width;
-			r.y = 1f - ((r.y - textureRect.y)/textureRect.height);
-			r.x = (r.x - textureRect.x)/textureRect.width;
-			return r;
 		}
 
 		void InitTextures()
@@ -299,17 +257,25 @@ namespace FontEdit
 				CreateColorPixel(Color.green, out axisY);
 		}
 
+		// =========================
+		// ==== Message methods ====
+		// =========================
+		protected virtual void OnEnable()
+		{
+			Instance = this;
+		}
+
+		protected virtual void Update()
+		{
+			Repaint();
+		}
+
 		protected virtual void OnGUI()
 		{
 			InitTextures();
 
 			var labelStyle = new GUIStyle(EditorStyles.boldLabel) {alignment = TextAnchor.MiddleCenter};
 
-			/*if (Event.current.type == EventType.mouseDown && Selection.activeObject != this)
-			{
-				Selection.activeObject = this;
-				return;
-			}*/
 			if (SelectedFont == null)
 			{
 				EditorGUI.LabelField(WindowRect, "No font selected", labelStyle);
@@ -319,94 +285,17 @@ namespace FontEdit
 				EditorGUI.LabelField(WindowRect, "The selected font has no main texture", labelStyle);
 			} else
 			{
-				GUI.DrawTexture(TextureRect, Texture, ScaleMode.ScaleToFit);
 				GetCharacters();
-
-				for (int i = 0; i < chars.Length; i++)
+				switch (WindowMode)
 				{
-					var c = chars[i];
-					var uiRect = GetUiRect(c.uvRect);
-					
-
-					// Handle move & resize
-					if (c.index == selectedChar)
-					{
-						selectedRect = uiRect;
-						var nr = Normalize(uiRect);
-
-						foreach (var handle in grabHandles)
-						{
-							var r = handle.rect(nr);
-							EditorGUIUtility.AddCursorRect(r, handle.cursor);
-							if (handle.cursor != MouseCursor.MoveArrow)
-								GUI.DrawTexture(r, handles);
-							if (Event.current.type == EventType.mouseDown && r.Contains(Event.current.mousePosition))
-							{
-								var d = handle.corners;
-								if (uiRect.width < 0f) // Invert X
-								{
-									if (HasCorner(d, GrabCorner.XMin) && !HasCorner(d, GrabCorner.XMax))
-										d = (d | GrabCorner.XMax) & ~GrabCorner.XMin;
-									else if (HasCorner(d, GrabCorner.XMax) && !HasCorner(d, GrabCorner.XMin))
-										d = (d | GrabCorner.XMin) & ~GrabCorner.XMax;
-								}
-								if (uiRect.height < 0f) // Invert Y
-								{
-									if (HasCorner(d, GrabCorner.YMin) && !HasCorner(d, GrabCorner.YMax))
-										d = (d | GrabCorner.YMax) & ~GrabCorner.YMin;
-									else if (HasCorner(d, GrabCorner.YMax) && !HasCorner(d, GrabCorner.YMin))
-										d = (d | GrabCorner.YMin) & ~GrabCorner.YMax;
-								}
-								dragging = d;
-							}
-						}
-
-						if (dragging != GrabCorner.None)
-						{
-							DrawSelection(uiRect, c.rotated);
-							if (Event.current.type == EventType.mouseDrag)
-							{
-								var d = dragging;
-								if (HasCorner(d, GrabCorner.XMin))
-									uiRect.xMin += Event.current.delta.x;
-								if (HasCorner(d, GrabCorner.XMax))
-									uiRect.xMax += Event.current.delta.x;
-								if (HasCorner(d, GrabCorner.YMin))
-									uiRect.yMin += Event.current.delta.y;
-								if (HasCorner(d, GrabCorner.YMax))
-									uiRect.yMax += Event.current.delta.y;
-								// Write back to chars
-								c.uvRect = GetUvRect(uiRect);
-								chars[i] = c;
-							}
-							else if (Event.current.type == EventType.mouseUp)
-							{
-								dragging = GrabCorner.None;
-							}
-						}
-					}
-
-					// Draw highlight (mouse hover)
-					if (dragging == GrabCorner.None)
-					{
-						if (c.index == selectedChar || uiRect.Contains(Event.current.mousePosition, true))
-						{
-							DrawSelection(uiRect, c.rotated);
-							if (Event.current.type == EventType.mouseDown && !(selectedRect?.Contains(Event.current.mousePosition, true) ?? false))
-								selectedChar = c.index;
-						}
-						else if (showAll)
-						{
-							DrawSelection(uiRect, c.rotated);
-						}
-					}
+					case WindowMode.UV:
+						DrawUvEditor();
+						break;
+					case WindowMode.Vert:
+						DrawVertEditor();
+						break;
 				}
 			}
-		}
-
-		protected virtual void Update()
-		{
-			Repaint();
 		}
 	}
 }

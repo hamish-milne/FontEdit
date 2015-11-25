@@ -1,4 +1,5 @@
-﻿using UnityEditor;
+﻿using System;
+using UnityEditor;
 using UnityEngine;
 
 namespace FontEdit
@@ -11,17 +12,14 @@ namespace FontEdit
 		{
 			"FontSize", "Ascent",
 			"Kerning", "LineSpacing", "CharacterSpacing", "CharacterPadding",
-			"PixelScale", "DefaultMaterial", "Texture",
+			"PixelScale", "DefaultMaterial", /*"Texture",*/
 			//"FontNames", "FallbackFonts" // Arrays don't directly work
 		};
 
-		protected enum UvUnit
+		public override bool RequiresConstantRepaint()
 		{
-			Coords,
-			Pixels,
+			return true;
 		}
-
-		[SerializeField] protected UvUnit uvUnit; 
 
 		public override void OnInspectorGUI()
 		{
@@ -53,6 +51,11 @@ namespace FontEdit
 			{
 				var editor = new SerializedObject(FontEditWindow.Instance);
 
+				// ==== Editor control ====
+				FontEditWindow.Instance.WindowMode =
+					(WindowMode) GUILayout.Toolbar((int) FontEditWindow.Instance.WindowMode,
+					Enum.GetNames(typeof (WindowMode)));
+
 				EditorGUILayout.LabelField("Character", EditorStyles.boldLabel);
 
 				// ==== Selected character ====
@@ -62,34 +65,47 @@ namespace FontEdit
 					new Vector2((selectionRect.width / 2f) - 1f, selectionRect.height));
 				var intRect = new Rect(charRect.xMax + 1f, charRect.y,
 					selectionRect.width / 2f, selectionRect.height);
-				var selectedIndex = editor.FindProperty("selectedChar");
+				var selectedChar = editor.FindProperty("selectedChar");
 				//     Draw integer index
-				EditorGUI.PropertyField(intRect, selectedIndex, GUIContent.none);
+				EditorGUI.PropertyField(intRect, selectedChar, GUIContent.none);
 				//     Draw character index (from string)
 				EditorGUI.BeginChangeCheck();
-				var newStr = EditorGUI.TextField(charRect, ((char)selectedIndex.intValue).ToString());
+				var newStr = EditorGUI.TextField(charRect, ((char)selectedChar.intValue).ToString());
 				if (EditorGUI.EndChangeCheck())
 				{
 					var c = newStr.Length < 1 ? '\0' : newStr[0];
-					selectedIndex.intValue = c;
+					selectedChar.intValue = c;
 				}
+				//     Show character name
+				UnicodeName.Init();
+				string unicodeName;
+				if (UnicodeName.CurrentStatus != UnicodeName.Status.Done)
+					unicodeName = UnicodeName.StatusMessage;
+				else
+					unicodeName = UnicodeName.GetName((char) selectedChar.intValue) ?? "Unknown character";
+				EditorGUILayout.LabelField(" ", unicodeName);
 				//     Get FontCharacter object from array
 				var selectionIndex = FontEditWindow.Instance.GetSelectionIndex();
-				var fontChar = selectionIndex < 0 ? null : editor.FindProperty("chars")
-					.GetArrayElementAtIndex(selectionIndex);
+				var chars = editor.FindProperty("chars");
+                var fontChar = selectionIndex < 0 ? null : chars.GetArrayElementAtIndex(selectionIndex);
 
 				if (fontChar == null)
 				{
-					EditorGUILayout.LabelField("No character selected", centerLabel);
+					// ==== Create ====
+					if(selectedChar.intValue <= 0)
+						EditorGUILayout.LabelField("No character selected", centerLabel);
+					else if (GUILayout.Button("Create character"))
+						FontEditWindow.Instance.AddSelected();
 				}
 				else
 				{
 					// ==== UV ====
 					var tex = FontEditWindow.Instance.Texture;
-					uvUnit = (UvUnit)EditorGUILayout.EnumPopup("Display unit", uvUnit);
-					var uvRect = fontChar.FindPropertyRelative("uvRect");
+					var displayUnit = editor.FindProperty("displayUnit");
+					EditorGUILayout.PropertyField(displayUnit, new GUIContent(displayUnit.displayName));
+					var uvRect = fontChar.FindPropertyRelative("uv");
 					var rectValue = uvRect.rectValue;
-					if (uvUnit == UvUnit.Pixels)
+					if ((DisplayUnit)displayUnit.intValue == DisplayUnit.Pixels)
 					{
                         rectValue.x *= tex.width;
 						rectValue.y *= tex.height;
@@ -100,7 +116,7 @@ namespace FontEdit
 					rectValue = EditorGUILayout.RectField("UV rect", rectValue);
 					if (EditorGUI.EndChangeCheck())
 					{
-						if (uvUnit == UvUnit.Pixels)
+						if ((DisplayUnit)displayUnit.intValue == DisplayUnit.Pixels)
 						{
 							rectValue.x /= tex.width;
 							rectValue.y /= tex.height;
@@ -113,21 +129,35 @@ namespace FontEdit
 					// ==== Rotation ====
 					EditorGUILayout.PropertyField(fontChar.FindPropertyRelative("rotated"));
 					EditorGUILayout.Space();
+
+					// ==== Vert ====
+					var vert = fontChar.FindPropertyRelative("vert");
+					vert.rectValue = EditorGUILayout.RectField("Vert", vert.rectValue);
+
+					// ==== Advance ====
+					EditorGUILayout.PropertyField(fontChar.FindPropertyRelative("advance"));
+
+					// ==== Delete ====
+					if (GUILayout.Button("Delete character"))
+					{
+						FontEditWindow.Instance.DeleteSelected();
+						editor.Update();
+					}
 				}
 
 				editor.ApplyModifiedProperties();
+				editor.Update();
 
 				// ==== Control ====
+				EditorGUILayout.BeginHorizontal();
 				if(GUILayout.Button("Apply"))
 					FontEditWindow.Instance.Apply();
+				if(GUILayout.Button("Revert"))
+					FontEditWindow.Instance.Revert();
+				EditorGUILayout.EndHorizontal();
 			}
 
 			serializedObject.ApplyModifiedProperties();
-		}
-
-		public override bool RequiresConstantRepaint()
-		{
-			return true;
 		}
 	}
 }
