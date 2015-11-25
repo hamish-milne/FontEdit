@@ -1,4 +1,5 @@
 ﻿using System;
+using System.IO;
 using UnityEditor;
 using UnityEngine;
 
@@ -22,6 +23,7 @@ namespace FontEdit
 			"FontNames", "FallbackFonts"
 		};
 
+		// Automatic drawing of these arrays doesn't work for some reason
 		private static void DrawArray(SerializedProperty property)
 		{
 			property.isExpanded = EditorGUILayout.Foldout(property.isExpanded, property.displayName);
@@ -35,10 +37,13 @@ namespace FontEdit
 			}
 		}
 
+		// This keeps the inspector updating when you use the editor window
 		public override bool RequiresConstantRepaint()
 		{
 			return true;
 		}
+
+		private const float buttonWidth = 80f;
 
 		public override void OnInspectorGUI()
 		{
@@ -79,32 +84,39 @@ namespace FontEdit
 			{
 				var editor = new SerializedObject(FontEditWindow.Instance);
 
+				// Re-enable controls if this is an asset
+				var isAsset = AssetImporter.GetAtPath(AssetDatabase.GetAssetPath(serializedObject.targetObject)) != null;
+				if(isAsset)
+					EditorGUI.EndDisabledGroup();
+
 				// ==== Editor control ====
+				EditorGUILayout.BeginHorizontal();
+				GUILayout.FlexibleSpace();
 				FontEditWindow.Instance.WindowMode =
 					(WindowMode) GUILayout.Toolbar((int) FontEditWindow.Instance.WindowMode,
-					Enum.GetNames(typeof (WindowMode)));
+					Enum.GetNames(typeof (WindowMode)), GUILayout.MaxWidth(buttonWidth*2));
+				GUILayout.FlexibleSpace();
+				EditorGUILayout.EndHorizontal();
 
 				EditorGUILayout.LabelField("Character", EditorStyles.boldLabel);
 
 				// ==== Selected character ====
 				var selectedChar = editor.FindProperty("selectedChar");
-				var selectionRect = EditorGUI.PrefixLabel(EditorGUILayout.GetControlRect(),
-					new GUIContent("Selected", selectedChar.tooltip));
-				//     Rects for character and integer index
-				var charRect = new Rect(selectionRect.position,
-					new Vector2((selectionRect.width / 2f) - 1f, selectionRect.height));
-				var intRect = new Rect(charRect.xMax + 1f, charRect.y,
-					selectionRect.width / 2f, selectionRect.height);
-				//     Draw integer index
-				EditorGUI.PropertyField(intRect, selectedChar, GUIContent.none);
-				//     Draw character index (from string)
+				EditorGUILayout.BeginHorizontal();
+				EditorGUILayout.LabelField(new GUIContent("Selected", selectedChar.tooltip),
+					GUILayout.Width(EditorGUIUtility.labelWidth));
+				var width = EditorGUIUtility.currentViewWidth - EditorGUIUtility.labelWidth;
+				//    Character index
+				EditorGUILayout.PropertyField(selectedChar, GUIContent.none, GUILayout.Width(width / 2f));
 				EditorGUI.BeginChangeCheck();
-				var newStr = EditorGUI.TextField(charRect, ((char)selectedChar.intValue).ToString());
+				//    Character from string
+				var newStr = EditorGUILayout.TextField(((char)selectedChar.intValue).ToString());
 				if (EditorGUI.EndChangeCheck())
 				{
 					var c = newStr.Length < 1 ? '\0' : newStr[0];
 					selectedChar.intValue = c;
 				}
+				EditorGUILayout.EndHorizontal();
 				//     Show character name
 				UnicodeName.Init();
 				string unicodeName;
@@ -121,10 +133,16 @@ namespace FontEdit
 				if (fontChar == null)
 				{
 					// ==== Create ====
-					if(selectedChar.intValue <= 0)
+					if (selectedChar.intValue <= 0)
 						EditorGUILayout.LabelField("No character selected", centerLabel);
-					else if (GUILayout.Button("Create character"))
-						FontEditWindow.Instance.AddSelected();
+					else
+					{
+						EditorGUILayout.BeginHorizontal();
+						GUILayout.FlexibleSpace();
+						if (GUILayout.Button("Add", GUILayout.MaxWidth(buttonWidth)))
+							FontEditWindow.Instance.AddSelected();
+						EditorGUILayout.EndHorizontal();
+					}
 				}
 				else
 				{
@@ -167,11 +185,14 @@ namespace FontEdit
 					EditorGUILayout.PropertyField(fontChar.FindPropertyRelative("advance"));
 
 					// ==== Delete ====
-					if (GUILayout.Button("Delete character"))
+					EditorGUILayout.BeginHorizontal();
+					GUILayout.FlexibleSpace();
+					if (GUILayout.Button("Delete", GUILayout.MaxWidth(buttonWidth)))
 					{
 						FontEditWindow.Instance.DeleteSelected();
 						editor.Update();
 					}
+					EditorGUILayout.EndHorizontal();
 				}
 
 				editor.ApplyModifiedProperties();
@@ -180,12 +201,16 @@ namespace FontEdit
 				// ==== Control ====
 				EditorGUI.BeginDisabledGroup(!FontEditWindow.Instance.HasChanges);
 				EditorGUILayout.BeginHorizontal();
-				if(GUILayout.Button("Apply"))
+				if(GUILayout.Button("Apply", GUILayout.MaxWidth(buttonWidth)))
 					FontEditWindow.Instance.Apply();
-				if(GUILayout.Button("Revert"))
+				GUILayout.FlexibleSpace();
+				if(GUILayout.Button("Revert", GUILayout.MaxWidth(buttonWidth)))
 					FontEditWindow.Instance.Revert();
 				EditorGUILayout.EndHorizontal();
 				EditorGUI.EndDisabledGroup();
+
+				if(isAsset)
+					EditorGUI.BeginDisabledGroup(true);
 			}
 
 			serializedObject.ApplyModifiedProperties();

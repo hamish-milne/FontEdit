@@ -7,7 +7,6 @@ namespace FontEdit
 	public partial class FontEditWindow
 	{
 		private const float grabBorder = 5f;
-
 		private GrabCorner dragging;
 
 		[Flags]
@@ -101,9 +100,11 @@ namespace FontEdit
 			foreach (var handle in grabHandles)
 			{
 				var r = handle.rect(nr);
+				// AddCursorRect requires positive height and width (from 'Normalize')
 				EditorGUIUtility.AddCursorRect(r, handle.cursor);
 				if (handle.cursor != MouseCursor.MoveArrow)
 					GUI.DrawTexture(r, handles);
+				// Start drag
 				if (Event.current.type == EventType.mouseDown && r.Contains(Event.current.mousePosition))
 				{
 					var d = handle.corners;
@@ -129,6 +130,7 @@ namespace FontEdit
 
 			if (dragging != GrabCorner.None)
 			{
+				// Move drag
 				if (Event.current.type == EventType.mouseDrag)
 				{
 					var d = dragging;
@@ -143,6 +145,7 @@ namespace FontEdit
 				}
 				else if (Event.current.type == EventType.mouseUp)
 				{
+					// Stop drag
 					dragging = GrabCorner.None;
 				}
 			}

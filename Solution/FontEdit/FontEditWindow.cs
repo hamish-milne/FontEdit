@@ -62,15 +62,16 @@ namespace FontEdit
 		// ================
 		[SerializeField] protected Font currentFont;
 		[SerializeField] protected FontCharacter[] chars;
-		[NonSerialized]  protected Texture2D selection, handles, axisX, axisY, originHandle;
 		[SerializeField] protected bool showAll;
 		[SerializeField] protected int selectedChar = -1;
 		[SerializeField] protected WindowMode windowMode;
 		[SerializeField] protected DisplayUnit displayUnit;
 		[SerializeField] protected bool changed;
 
+		private Texture2D selection, handles, axisX, axisY, originHandle;
 		private static readonly Color32 selectionColor = new Color32(45, 146, 250, 80);
-		const float margin = 10f;
+		private const float margin = 10f;
+		private const float axisWidth = 2f;
 
 		// ====================
 		// ==== Properties ====
@@ -124,9 +125,23 @@ namespace FontEdit
 			return -1;
 		}
 
-		float GetFontAscent()
+		// =========================
+		// ==== Font properties ====
+		// =========================
+		private SerializedProperty ascent, kerning;
+
+		float GetAscent()
 		{
-			return (new SerializedObject(currentFont)).FindProperty("m_Ascent").floatValue;
+			if (ascent == null || ascent.serializedObject.targetObject != currentFont)
+				ascent = (new SerializedObject(currentFont)).FindProperty("m_Ascent");
+            return ascent.floatValue;
+		}
+
+		float GetKerning()
+		{
+			if (kerning == null || kerning.serializedObject.targetObject != currentFont)
+				kerning = (new SerializedObject(currentFont)).FindProperty("m_Kerning");
+			return kerning.floatValue;
 		}
 
 		// ============================
@@ -139,7 +154,6 @@ namespace FontEdit
 			{
 				var characterInfo = currentFont.characterInfo;
 				chars = new FontCharacter[characterInfo.Length];
-				var ascent = GetFontAscent();
 				for (int i = 0; i < chars.Length; i++)
 				{
 					var c = characterInfo[i];
@@ -154,7 +168,7 @@ namespace FontEdit
 #pragma warning disable 618
 						// The normal vert properties are mixed in with an inaccessible 'ascent' field
 						// that is presumably set by Unity when it retrieves the data
-						vert = new Rect(c.vert.x, c.vert.y + ascent, c.vert.width, c.vert.height),
+						vert = new Rect(c.vert.x, c.vert.y + GetAscent(), c.vert.width, c.vert.height),
 #pragma warning restore 618
 						rotated = Math.Abs(c.uvTopLeft.x - c.uvTopRight.x) < float.Epsilon,
 						advance = c.advance
@@ -168,8 +182,7 @@ namespace FontEdit
 			if (currentFont != null)
 			{
 				var assetPath = AssetDatabase.GetAssetPath(currentFont);
-                var ext = Path.GetExtension(assetPath)?.ToLower();
-				if (ext == ".ttf" || ext == ".otf")
+				if (AssetImporter.GetAtPath(assetPath) != null)
 				{
 					switch (EditorUtility.DisplayDialogComplex("FontEdit",
 						"The selected font is an imported asset, so any changes you make " +
@@ -192,7 +205,6 @@ namespace FontEdit
 							return;
 					}
 				}
-				var ascent = GetFontAscent();
 				currentFont.characterInfo = chars.Select(fc => new CharacterInfo
 				{
 					index = fc.index,
@@ -204,7 +216,7 @@ namespace FontEdit
 					// The normal vert properties are mixed in with an inaccessible 'ascent' field
 					// that is presumably set by Unity when it retrieves the data
 					// (As well as being incredibly difficult to change in general)
-					vert = new Rect(fc.vert.x, fc.vert.y - ascent, fc.vert.width, fc.vert.height),
+					vert = new Rect(fc.vert.x, fc.vert.y - GetAscent(), fc.vert.width, fc.vert.height),
 #pragma warning restore 618
 					advance = (int)fc.advance,
 			}).ToArray();
