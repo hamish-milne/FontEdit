@@ -10,7 +10,7 @@ namespace FontEdit
 	[CustomEditor(typeof(Font)), CanEditMultipleObjects]
 	public class FontEditInspector : Editor
 	{
-		private static readonly string[] properties =
+		private static readonly string[] fontProperties =
 		{
 			"FontSize", "Ascent",
 			"Kerning", "LineSpacing",
@@ -50,7 +50,7 @@ namespace FontEdit
 
 			// ==== Font settings ====
 			EditorGUILayout.LabelField("Font settings", EditorStyles.boldLabel);
-			foreach (var pname in properties)
+			foreach (var pname in fontProperties)
 			{
 				var p = serializedObject.FindProperty("m_" + pname);
 				EditorGUILayout.PropertyField(p);

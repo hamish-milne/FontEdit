@@ -62,17 +62,19 @@ namespace FontEdit
 		// ================
 		[SerializeField] protected Font currentFont;
 		[SerializeField] protected FontCharacter[] chars;
-		[SerializeField] protected Texture2D selection, handles, axisX, axisY;
+		[NonSerialized]  protected Texture2D selection, handles, axisX, axisY, originHandle;
 		[SerializeField] protected bool showAll;
 		[SerializeField] protected int selectedChar = -1;
 		[SerializeField] protected WindowMode windowMode;
 		[SerializeField] protected DisplayUnit displayUnit;
 		[SerializeField] protected bool changed;
 
+		private static readonly Color32 selectionColor = new Color32(45, 146, 250, 80);
+		const float margin = 10f;
+
 		// ====================
 		// ==== Properties ====
 		// ====================
-		const float margin = 10f;
 		protected Rect WindowRect => new Rect(margin, margin,
 			position.width - margin * 2f, position.height - margin * 2f);
 
@@ -262,13 +264,19 @@ namespace FontEdit
 		void InitTextures()
 		{
 			if (selection == null)
-				CreateColorPixel(new Color32(45, 146, 250, 80), out selection);
+				CreateColorPixel(selectionColor, out selection);
 			if (handles == null)
-				CreateColorPixel(new Color32(45, 146, 250, 160), out handles);
+			{
+				var hColor = selectionColor;
+				hColor.a *= 2;
+				CreateColorPixel(hColor, out handles);
+			}
 			if (axisX == null)
 				CreateColorPixel(Color.red, out axisX);
 			if (axisY == null)
 				CreateColorPixel(Color.green, out axisY);
+			if (originHandle == null)
+				CreateColorPixel(Color.blue, out originHandle);
 		}
 
 		// =========================
@@ -317,7 +325,6 @@ namespace FontEdit
 		protected virtual void OnGUI()
 		{
 			InitTextures();
-
 			var labelStyle = new GUIStyle(EditorStyles.boldLabel) {alignment = TextAnchor.MiddleCenter};
 
 			if (currentFont == null)
@@ -337,7 +344,7 @@ namespace FontEdit
 						DrawUvEditor();
 						break;
 					case WindowMode.Vert:
-						DrawVertEditor();
+						DrawTest();
 						break;
 				}
 			}
