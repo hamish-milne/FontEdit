@@ -6,28 +6,27 @@ using UnityEditor;
 
 namespace FontEdit
 {
-	[Serializable]
-	public struct FontCharacter
-	{
-		public int index;
-		public Rect uv, vert;
-		public bool rotated;
-		public float advance;
-	}
-
+	/// <summary>
+	/// The FontEdit window mode
+	/// </summary>
 	public enum WindowMode
 	{
 		UV,
 		Vert,
-		Test,
 	}
 
+	/// <summary>
+	/// How to display the UV rect in the inspector
+	/// </summary>
 	public enum DisplayUnit
 	{
 		Coords,
 		Pixels,
 	}
 
+	/// <summary>
+	/// The main FontEdit window
+	/// </summary>
 	public partial class FontEditWindow : EditorWindow
 	{
 		// =========================
@@ -48,28 +47,38 @@ namespace FontEdit
 		}
 		public static FontEditWindow Instance { get; private set; }
 
+		// Nicer storage of font characters
+		[Serializable]
+		protected struct FontCharacter
+		{
+			public int index;
+			public Rect uv, vert;
+			public bool rotated;
+			public float advance;
+		}
+
 		// ================
 		// ==== Fields ====
 		// ================
-		[NonSerialized] private Font storedFont;
-		[SerializeField, HideInInspector] protected FontCharacter[] chars;
-		[SerializeField, HideInInspector] protected Texture2D selection, handles, axisX, axisY;
+		[SerializeField] protected Font currentFont;
+		[SerializeField] protected FontCharacter[] chars;
+		[SerializeField] protected Texture2D selection, handles, axisX, axisY;
 		[SerializeField] protected bool showAll;
 		[SerializeField] protected int selectedChar = -1;
 		[SerializeField] protected WindowMode windowMode;
 		[SerializeField] protected DisplayUnit displayUnit;
+		[SerializeField] protected bool changed;
 
 		// ====================
 		// ==== Properties ====
 		// ====================
 		const float margin = 10f;
-		protected Rect WindowRect => new Rect(margin, margin, position.width - margin * 2f, position.height - margin * 2f);
+		protected Rect WindowRect => new Rect(margin, margin,
+			position.width - margin * 2f, position.height - margin * 2f);
 
-		public static Font SelectedFont
-		{
-			get { return Selection.activeObject as Font; }
-			set { Selection.activeObject = value; }
-		}
+		public bool HasChanges => changed;
+
+		public bool CanEdit => currentFont != null;
 
 		public WindowMode WindowMode
 		{
@@ -77,9 +86,10 @@ namespace FontEdit
 			set { windowMode = value; }
 		}
 
-		public Texture2D Texture => SelectedFont.material?.mainTexture as Texture2D;
+		public Texture2D Texture => currentFont.material?.mainTexture as Texture2D;
 
-		protected float Scale => Mathf.Min(WindowRect.width, WindowRect.height) / Mathf.Max(Texture.width, Texture.height);
+		protected float Scale => Mathf.Min(WindowRect.width, WindowRect.height)
+			/ Mathf.Max(Texture.width, Texture.height);
 
 		protected Rect TextureRect => GetCenterRect(Texture.width * Scale, Texture.height * Scale);
 
@@ -112,9 +122,9 @@ namespace FontEdit
 			return -1;
 		}
 
-		static float GetFontAscent()
+		float GetFontAscent()
 		{
-			return (new SerializedObject(SelectedFont)).FindProperty("m_Ascent").floatValue;
+			return (new SerializedObject(currentFont)).FindProperty("m_Ascent").floatValue;
 		}
 
 		// ============================
@@ -122,11 +132,10 @@ namespace FontEdit
 		// ============================
 		void GetCharacters()
 		{
-			if (SelectedFont == null)
-				chars = null;
-			else if (storedFont != SelectedFont || chars == null || chars.Length == 0)
+			Revert();
+			if(currentFont != null)
 			{
-				var characterInfo = SelectedFont.characterInfo;
+				var characterInfo = currentFont.characterInfo;
 				chars = new FontCharacter[characterInfo.Length];
 				var ascent = GetFontAscent();
 				for (int i = 0; i < chars.Length; i++)
@@ -149,17 +158,14 @@ namespace FontEdit
 						advance = c.advance
 					};
 				}
-				storedFont = SelectedFont;
-				selectedRect = null;
 			}
 		}
 
 		public void Apply()
 		{
-			GetCharacters();
-			if (SelectedFont != null)
+			if (currentFont != null)
 			{
-				var assetPath = AssetDatabase.GetAssetPath(SelectedFont);
+				var assetPath = AssetDatabase.GetAssetPath(currentFont);
                 var ext = Path.GetExtension(assetPath)?.ToLower();
 				if (ext == ".ttf" || ext == ".otf")
 				{
@@ -170,19 +176,22 @@ namespace FontEdit
 						"Yes", "Cancel", "No"))
 					{
 						case 0:
-							var basePath = Path.GetDirectoryName(assetPath) + "/" + Path.GetFileNameWithoutExtension(assetPath) + "_copy";
+							var basePath = Path.GetDirectoryName(assetPath) + "/" +
+								Path.GetFileNameWithoutExtension(assetPath) + "_copy";
 							var i = 1;
 							var path = basePath + ".fontsettings";
 							while (File.Exists(path))
 								path = basePath + (i++) + ".fontsettings";
-							SelectedFont = ((TrueTypeFontImporter) AssetImporter.GetAtPath(assetPath)).GenerateEditableFont(path);
+							Selection.activeObject =
+								((TrueTypeFontImporter) AssetImporter.GetAtPath(assetPath))
+								.GenerateEditableFont(path);
 							break;
 						case 1:
 							return;
 					}
 				}
 				var ascent = GetFontAscent();
-				SelectedFont.characterInfo = chars.Select(fc => new CharacterInfo
+				currentFont.characterInfo = chars.Select(fc => new CharacterInfo
 				{
 					index = fc.index,
 					uvBottomLeft = fc.uv.min,
@@ -197,14 +206,16 @@ namespace FontEdit
 #pragma warning restore 618
 					advance = (int)fc.advance,
 			}).ToArray();
-				chars = null;
-				EditorUtility.SetDirty(SelectedFont);
+				EditorUtility.SetDirty(currentFont);
+				Revert();
 			}
 		}
 
 		public void Revert()
 		{
 			chars = null;
+			selectedRect = null;
+			changed = false;
 		}
 
 		// ========================
@@ -218,6 +229,7 @@ namespace FontEdit
 			Array.Resize(ref chars, ret + 1);
 			chars[ret].index = selectedChar;
 			chars[ret].uv = new Rect(0.375f, 0.375f, 0.25f, 0.25f);
+			changed = true;
 			return ret;
 		}
 
@@ -233,6 +245,7 @@ namespace FontEdit
 			Array.Resize(ref newArray, newLength);
 			chars = newArray;
 			selectedChar = -1;
+			changed = true;
 		}
 
 		// ==========================
@@ -261,9 +274,39 @@ namespace FontEdit
 		// =========================
 		// ==== Message methods ====
 		// =========================
+		public FontEditWindow()
+		{
+			Selection.selectionChanged += SelectionChanged;
+		}
+
+		protected virtual void OnDestroy()
+		{
+			Selection.selectionChanged -= SelectionChanged;
+		}
+
+		private void SelectionChanged()
+		{
+			// Specifically disallow multiple fonts to avoid confusion
+			// (the basic inspector will still work, however)
+			var newFont = Selection.objects.Length == 1 ? Selection.activeObject as Font : null;
+			if (newFont != currentFont)
+			{
+				if (currentFont != null && changed)
+				{
+					if (EditorUtility.DisplayDialog("FontEdit",
+						"Apply changes to " + currentFont.name + "?",
+						"Yes", "No"))
+						Apply();
+                }
+				currentFont = newFont;
+			}
+			GetCharacters();
+		}
+
 		protected virtual void OnEnable()
 		{
 			Instance = this;
+			SelectionChanged();
 		}
 
 		protected virtual void Update()
@@ -277,7 +320,7 @@ namespace FontEdit
 
 			var labelStyle = new GUIStyle(EditorStyles.boldLabel) {alignment = TextAnchor.MiddleCenter};
 
-			if (SelectedFont == null)
+			if (currentFont == null)
 			{
 				EditorGUI.LabelField(WindowRect, "No font selected", labelStyle);
 			}
@@ -286,7 +329,8 @@ namespace FontEdit
 				EditorGUI.LabelField(WindowRect, "The selected font has no main texture", labelStyle);
 			} else
 			{
-				GetCharacters();
+				if(chars == null && currentFont != null)
+					GetCharacters();
 				switch (WindowMode)
 				{
 					case WindowMode.UV:
@@ -294,9 +338,6 @@ namespace FontEdit
 						break;
 					case WindowMode.Vert:
 						DrawVertEditor();
-						break;
-					case WindowMode.Test:
-						DrawTest();
 						break;
 				}
 			}

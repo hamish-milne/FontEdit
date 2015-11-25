@@ -10,7 +10,7 @@ namespace FontEdit
 
 		float GetKerning()
 		{
-			return (new SerializedObject(SelectedFont)).FindProperty("m_Kerning").floatValue;
+			return (new SerializedObject(currentFont)).FindProperty("m_Kerning").floatValue;
 		}
 
 		void DrawTest()
@@ -20,7 +20,7 @@ namespace FontEdit
 			(new SerializedObject(this)).ApplyModifiedPropertiesWithoutUndo();
 			if (!string.IsNullOrEmpty(testString))
 			{
-				var origin = new Vector2(WindowRect.x, WindowRect.center.y + GetFontAscent()/2f);
+				var origin = new Vector2(WindowRect.x, WindowRect.y + GetFontAscent() + 20f);
 				foreach (var c in testString)
 				{
 					var fc = chars.FirstOrDefault(cinfo => cinfo.index == c);

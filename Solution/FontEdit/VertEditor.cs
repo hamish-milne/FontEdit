@@ -4,7 +4,9 @@ namespace FontEdit
 {
 	public partial class FontEditWindow
 	{
-		protected Vector2 VertOrigin => new Vector2(WindowRect.x + WindowRect.width/3f, WindowRect.center.y + GetFontAscent()/2f);
+		protected Vector2 VertOrigin => new Vector2(
+			WindowRect.x + WindowRect.width/3f,
+			WindowRect.center.y + GetFontAscent());
 
 		Rect VertToUi(Rect vert, Vector2 origin)
 		{
@@ -54,8 +56,10 @@ namespace FontEdit
 				{
 					fc.vert = UiToVert(vert, VertOrigin);
 					chars[index] = fc;
+					changed = true;
 				}
 			}
+			DrawTest();
 		}
 	}
 }

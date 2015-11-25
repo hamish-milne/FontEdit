@@ -4,17 +4,36 @@ using UnityEngine;
 
 namespace FontEdit
 {
-	[CustomEditor(typeof(Font))]
-	public class FontEditor : Editor
+	/// <summary>
+	/// A cleaner font inspector that integrates FontEdit functionality
+	/// </summary>
+	[CustomEditor(typeof(Font)), CanEditMultipleObjects]
+	public class FontEditInspector : Editor
 	{
-		// Not 100% sure which of these properties are used. Need to test
 		private static readonly string[] properties =
 		{
 			"FontSize", "Ascent",
 			"Kerning", "LineSpacing",
-			"DefaultMaterial",
-			//"FontNames", "FallbackFonts" // Arrays don't directly work
+			"DefaultMaterial"
 		};
+
+		private static readonly string[] arrayProperties =
+		{
+			"FontNames", "FallbackFonts"
+		};
+
+		private static void DrawArray(SerializedProperty property)
+		{
+			property.isExpanded = EditorGUILayout.Foldout(property.isExpanded, property.displayName);
+			if (property.isExpanded)
+			{
+				EditorGUI.indentLevel++;
+				EditorGUILayout.PropertyField(property.FindPropertyRelative("Array.size"));
+				for (int i = 0; i < property.arraySize; i++)
+					EditorGUILayout.PropertyField(property.GetArrayElementAtIndex(i));
+				EditorGUI.indentLevel--;
+			}
+		}
 
 		public override bool RequiresConstantRepaint()
 		{
@@ -34,7 +53,12 @@ namespace FontEdit
 			foreach (var pname in properties)
 			{
 				var p = serializedObject.FindProperty("m_" + pname);
-				EditorGUILayout.PropertyField(p, new GUIContent(p.displayName));
+				EditorGUILayout.PropertyField(p);
+			}
+			foreach (var pname in arrayProperties)
+			{
+				var p = serializedObject.FindProperty("m_" + pname);
+				DrawArray(p);
 			}
 			EditorGUILayout.Space();
 
@@ -46,6 +70,10 @@ namespace FontEdit
 					br = new Rect(br.center - new Vector2(100f, 20f), new Vector2(200f, 40f));
 				if(GUI.Button(br, "Open FontEdit window"))
 					FontEditWindow.OpenWindow();
+			}
+			else if (!FontEditWindow.Instance.CanEdit)
+			{
+				EditorGUILayout.LabelField("Unable to edit current selection", centerLabel);
 			}
 			else
 			{
@@ -59,13 +87,14 @@ namespace FontEdit
 				EditorGUILayout.LabelField("Character", EditorStyles.boldLabel);
 
 				// ==== Selected character ====
-				var selectionRect = EditorGUI.PrefixLabel(EditorGUILayout.GetControlRect(), new GUIContent("Selected"));
+				var selectedChar = editor.FindProperty("selectedChar");
+				var selectionRect = EditorGUI.PrefixLabel(EditorGUILayout.GetControlRect(),
+					new GUIContent("Selected", selectedChar.tooltip));
 				//     Rects for character and integer index
 				var charRect = new Rect(selectionRect.position,
 					new Vector2((selectionRect.width / 2f) - 1f, selectionRect.height));
 				var intRect = new Rect(charRect.xMax + 1f, charRect.y,
 					selectionRect.width / 2f, selectionRect.height);
-				var selectedChar = editor.FindProperty("selectedChar");
 				//     Draw integer index
 				EditorGUI.PropertyField(intRect, selectedChar, GUIContent.none);
 				//     Draw character index (from string)
@@ -102,7 +131,7 @@ namespace FontEdit
 					// ==== UV ====
 					var tex = FontEditWindow.Instance.Texture;
 					var displayUnit = editor.FindProperty("displayUnit");
-					EditorGUILayout.PropertyField(displayUnit, new GUIContent(displayUnit.displayName));
+					EditorGUILayout.PropertyField(displayUnit);
 					var uvRect = fontChar.FindPropertyRelative("uv");
 					var rectValue = uvRect.rectValue;
 					if ((DisplayUnit)displayUnit.intValue == DisplayUnit.Pixels)
@@ -149,12 +178,14 @@ namespace FontEdit
 				editor.Update();
 
 				// ==== Control ====
+				EditorGUI.BeginDisabledGroup(!FontEditWindow.Instance.HasChanges);
 				EditorGUILayout.BeginHorizontal();
 				if(GUILayout.Button("Apply"))
 					FontEditWindow.Instance.Apply();
 				if(GUILayout.Button("Revert"))
 					FontEditWindow.Instance.Revert();
 				EditorGUILayout.EndHorizontal();
+				EditorGUI.EndDisabledGroup();
 			}
 
 			serializedObject.ApplyModifiedProperties();

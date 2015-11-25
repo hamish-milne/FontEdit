@@ -66,25 +66,29 @@ namespace FontEdit
 			},
 			new GrabHandle // Bottom
 			{
-				rect = r => new Rect(r.x + grabBorder, r.yMax - grabBorder, r.width - (grabBorder*2f), grabBorder),
+				rect = r => new Rect(r.x + grabBorder, r.yMax - grabBorder,
+					r.width - (grabBorder*2f), grabBorder),
 				cursor = MouseCursor.ResizeVertical,
 				corners = GrabCorner.YMax
 			},
 			new GrabHandle // Bottom right
 			{
-				rect = r => new Rect(r.xMax - grabBorder, r.yMax - grabBorder, grabBorder, grabBorder),
+				rect = r => new Rect(r.xMax - grabBorder, r.yMax - grabBorder,
+					grabBorder, grabBorder),
 				cursor = MouseCursor.ResizeUpLeft,
 				corners = GrabCorner.XMax | GrabCorner.YMax
 			},
 			new GrabHandle // Right
 			{
-				rect = r => new Rect(r.xMax - grabBorder, r.y + grabBorder, grabBorder, r.height - (grabBorder*2f)),
+				rect = r => new Rect(r.xMax - grabBorder, r.y + grabBorder,
+					grabBorder, r.height - (grabBorder*2f)),
 				cursor = MouseCursor.ResizeHorizontal,
 				corners = GrabCorner.XMax
 			},
 			new GrabHandle // Center
 			{
-				rect = r => new Rect(r.x + grabBorder, r.y + grabBorder, r.width - (grabBorder*2f), r.height - (grabBorder*2f)),
+				rect = r => new Rect(r.x + grabBorder, r.y + grabBorder,
+					r.width - (grabBorder*2f), r.height - (grabBorder*2f)),
 				cursor = MouseCursor.MoveArrow,
 				corners = GrabCorner.XMin | GrabCorner.XMax | GrabCorner.YMin | GrabCorner.YMax
 			},
@@ -118,6 +122,7 @@ namespace FontEdit
 							d = (d | GrabCorner.YMin) & ~GrabCorner.YMax;
 					}
 					dragging = d;
+					// Using RecordObject doesn't work fully here, for some reason
 					Undo.RegisterCompleteObjectUndo(this, "Drag font character");
 				}
 			}

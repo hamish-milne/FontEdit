@@ -44,6 +44,8 @@ namespace FontEdit
 
 		void DrawUvEditor()
 		{
+			if (chars == null || Texture == null)
+				return;
 			GUI.DrawTexture(TextureRect, Texture, ScaleMode.ScaleToFit);
 			for (int i = 0; i < chars.Length; i++)
 			{
@@ -61,6 +63,7 @@ namespace FontEdit
 						// Write back to chars
 						c.uv = UiToUv(uiRect);
 						chars[i] = c;
+						changed = true;
 					}
 				}
 
@@ -70,7 +73,8 @@ namespace FontEdit
 					if (c.index == selectedChar || uiRect.Contains(Event.current.mousePosition, true))
 					{
 						DrawSelection(uiRect, c.rotated);
-						if (Event.current.type == EventType.mouseDown && !(selectedRect?.Contains(Event.current.mousePosition, true) ?? false))
+						if (Event.current.type == EventType.mouseDown &&
+							!(selectedRect?.Contains(Event.current.mousePosition, true) ?? false))
 							selectedChar = c.index;
 					}
 					else if (showAll)

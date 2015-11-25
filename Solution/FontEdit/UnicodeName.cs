@@ -136,7 +136,8 @@ namespace FontEdit
 							var isRange = charName.EndsWith(", First>");
 							if (isRange) // Add all characters within a specified range
 							{
-								charName = charName.Replace(", First", string.Empty); // Remove range indicator from name
+								// Remove range indicator from name
+								charName = charName.Replace(", First", string.Empty);
 								fields = unicodedata[++i].Split(';');
 								if (fields.Length < 2)
 									throw new Exception("Parse error line " + i);
