@@ -1,5 +1,4 @@
 ﻿using System;
-using System.IO;
 using UnityEditor;
 using UnityEngine;
 
@@ -55,6 +54,7 @@ namespace FontEdit
 
 			// ==== Font settings ====
 			EditorGUILayout.LabelField("Font settings", EditorStyles.boldLabel);
+			EditorGUI.BeginChangeCheck();
 			foreach (var pname in fontProperties)
 			{
 				var p = serializedObject.FindProperty("m_" + pname);
@@ -65,6 +65,9 @@ namespace FontEdit
 				var p = serializedObject.FindProperty("m_" + pname);
 				DrawArray(p);
 			}
+			if(EditorGUI.EndChangeCheck())
+				foreach(var o in serializedObject.targetObjects)
+					EditorUtility.SetDirty(o);
 			EditorGUILayout.Space();
 
 			// ==== Open window ====
@@ -160,7 +163,7 @@ namespace FontEdit
 						rectValue.height *= tex.height;
 					}
 					EditorGUI.BeginChangeCheck();
-					rectValue = EditorGUILayout.RectField("UV rect", rectValue);
+					rectValue = EditorGUILayout.RectField("UV", rectValue);
 					if (EditorGUI.EndChangeCheck())
 					{
 						if ((DisplayUnit)displayUnit.intValue == DisplayUnit.Pixels)

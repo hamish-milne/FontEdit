@@ -11,8 +11,8 @@ namespace FontEdit
 	/// </summary>
 	public enum WindowMode
 	{
-		UV,
-		Vert,
+		Texture,
+		Screen,
 	}
 
 	/// <summary>
@@ -62,12 +62,13 @@ namespace FontEdit
 		// ================
 		[SerializeField] protected Font currentFont;
 		[SerializeField] protected FontCharacter[] chars;
-		[SerializeField] protected bool showAll;
+		/*[SerializeField]*/ protected bool showAll = true;
 		[SerializeField] protected int selectedChar = -1;
 		[SerializeField] protected WindowMode windowMode;
 		[SerializeField] protected DisplayUnit displayUnit;
 		[SerializeField] protected bool changed;
 
+		[NonSerialized]
 		private Texture2D selection, handles, axisX, axisY, originHandle;
 		private static readonly Color32 selectionColor = new Color32(45, 146, 250, 80);
 		private const float margin = 10f;
@@ -352,14 +353,18 @@ namespace FontEdit
 					GetCharacters();
 				switch (WindowMode)
 				{
-					case WindowMode.UV:
+					case WindowMode.Texture:
 						DrawUvEditor();
 						break;
-					case WindowMode.Vert:
+					case WindowMode.Screen:
 						DrawTest();
 						break;
 				}
 			}
+
+			// For some reason the 'ascent' and 'kerning' properties get stuck..
+			ascent = null;
+			kerning = null;
 		}
 	}
 }

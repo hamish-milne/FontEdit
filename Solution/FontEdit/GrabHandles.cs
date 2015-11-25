@@ -6,7 +6,7 @@ namespace FontEdit
 {
 	public partial class FontEditWindow
 	{
-		private const float grabBorder = 5f;
+		private const float grabBorder = 4f;
 		private GrabCorner dragging;
 
 		[Flags]

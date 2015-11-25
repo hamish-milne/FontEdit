@@ -78,7 +78,7 @@ namespace FontEdit
 					}
 					else if (showAll)
 					{
-						DrawUvSelection(uiRect, c.rotated);
+						GUI.DrawTexture(uiRect, selection);
 					}
 				}
 			}

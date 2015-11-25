@@ -79,8 +79,8 @@ namespace FontEdit
 		// Draws the vert editor at the given position, returning true if there were changes
 		bool DrawVertEditor(Vector2 origin, ref FontCharacter fc)
 		{
-			DrawVertSelection(origin, fc, false);
 			var vert = DrawFontChar(fc, origin);
+			DrawVertSelection(origin, fc, false);
 			DrawHandles(ref vert, ref dragging);
 			if (dragging != GrabCorner.None)
 			{
@@ -91,7 +91,7 @@ namespace FontEdit
 			return false;
 		}
 
-		void DrawTest()
+		void DrawVertPanel()
 		{
 			// User input for test string
 			var strRect = new Rect(WindowRect.x, WindowRect.y, WindowRect.width, 16f);
@@ -101,6 +101,7 @@ namespace FontEdit
 			var hasDrawnVert = false;
 			var origin = WindowRect.position + (Vector2.up*GetAscent());
 			int? newChar = null;
+			var error = GetAscent() <= 1;
             if (!string.IsNullOrEmpty(testString))
 			{
 				testOffset += DrawOriginHandle(WindowRect.position + testOffset, ref dragTest);
@@ -122,6 +123,7 @@ namespace FontEdit
 					// Draw the vert editor if the character matches the selection
 					if (!hasDrawnVert && fc.index == selectedChar)
 					{
+						error |= fc.advance <= 1;
 						if (DrawVertEditor(tOrigin, ref fc))
 							chars[i] = fc;
 						hasDrawnVert = true;
@@ -147,9 +149,16 @@ namespace FontEdit
 				origin += vertOffset;
 				vertOffset += DrawOriginHandle(origin, ref dragVert);
 				var fc = chars[idx];
+				error |= fc.advance <= 0;
 				if (DrawVertEditor(origin, ref fc))
 					chars[idx] = fc;
 			}
+			// Show an error message if the axes won't be drawn
+			if(error)
+				EditorGUI.LabelField(
+					new Rect(strRect.x, strRect.y + 20f, strRect.width, strRect.height * 3f),
+					"The current ascent and/or advance values are very small, which may cause the axes to be invisible",
+					EditorStyles.wordWrappedLabel);
 			// Change the selected character if we clicked
 			if (newChar.HasValue)
 				selectedChar = newChar.Value;
