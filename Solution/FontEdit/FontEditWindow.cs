@@ -126,6 +126,12 @@ namespace FontEdit
 			return -1;
 		}
 
+		public static bool IsFontAsset(Font font)
+		{
+			var ext = Path.GetExtension(AssetDatabase.GetAssetPath(font))?.ToLowerInvariant();
+			return ext == ".ttf" || ext == ".otf";
+		}
+
 		public void Touch()
 		{
 			if(currentFont != null)
@@ -192,7 +198,7 @@ namespace FontEdit
 			if (currentFont != null)
 			{
 				var assetPath = AssetDatabase.GetAssetPath(currentFont);
-				if (AssetImporter.GetAtPath(assetPath) != null)
+				if (IsFontAsset(currentFont))
 				{
 					switch (EditorUtility.DisplayDialogComplex("FontEdit",
 						"The selected font is an imported asset, so any changes you make " +
@@ -250,11 +256,16 @@ namespace FontEdit
 		public int AddSelected()
 		{
 			if (GetSelectionIndex() >= 0)
-				throw new InvalidOperationException();
+				throw new InvalidOperationException("Adding a character that already exists");
 			var ret = chars.Length;
 			Array.Resize(ref chars, ret + 1);
-			chars[ret].index = selectedChar;
-			chars[ret].uv = new Rect(0.375f, 0.375f, 0.25f, 0.25f);
+			chars[ret] = new FontCharacter
+			{
+				index = selectedChar,
+				uv = new Rect(0.375f, 0.375f, 0.25f, 0.25f),
+				vert = new Rect(0f, 0f, 50f, 100f),
+				advance = 50f
+			};
 			changed = true;
 			return ret;
 		}
@@ -263,7 +274,7 @@ namespace FontEdit
 		{
 			var i = GetSelectionIndex();
 			if (i < 0)
-				throw new InvalidOperationException();
+				throw new InvalidOperationException("Deleting a character that does not exist");
 			var newArray = chars;
 			var newLength = newArray.Length - 1;
 			for (; i < newLength; i++)

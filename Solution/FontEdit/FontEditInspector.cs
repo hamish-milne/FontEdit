@@ -89,7 +89,7 @@ namespace FontEdit
 				var editor = new SerializedObject(FontEditWindow.Instance);
 
 				// Re-enable controls if this is an asset
-				var isAsset = AssetImporter.GetAtPath(AssetDatabase.GetAssetPath(serializedObject.targetObject)) != null;
+				var isAsset = FontEditWindow.IsFontAsset((Font)serializedObject.targetObject);
 				if(isAsset)
 					EditorGUI.EndDisabledGroup();
 
@@ -145,7 +145,10 @@ namespace FontEdit
 						EditorGUILayout.BeginHorizontal();
 						GUILayout.FlexibleSpace();
 						if (GUILayout.Button("Add", GUILayout.MaxWidth(buttonWidth)))
+						{
+							Undo.RegisterCompleteObjectUndo(FontEditWindow.Instance, "Add font character");
 							FontEditWindow.Instance.AddSelected();
+						}
 						EditorGUILayout.EndHorizontal();
 					}
 				}
@@ -154,10 +157,14 @@ namespace FontEdit
 					// ==== UV ====
 					var tex = FontEditWindow.Instance.Texture;
 					var displayUnit = editor.FindProperty("displayUnit");
+					EditorGUI.BeginDisabledGroup(tex == null);
+					if (tex == null)
+						displayUnit.intValue = (int) DisplayUnit.Coords;
 					EditorGUILayout.PropertyField(displayUnit);
+					EditorGUI.EndDisabledGroup();
 					var uvRect = fontChar.FindPropertyRelative("uv");
 					var rectValue = uvRect.rectValue;
-					if ((DisplayUnit)displayUnit.intValue == DisplayUnit.Pixels)
+					if (tex != null && (DisplayUnit)displayUnit.intValue == DisplayUnit.Pixels)
 					{
                         rectValue.x *= tex.width;
 						rectValue.y *= tex.height;
@@ -168,7 +175,7 @@ namespace FontEdit
 					rectValue = EditorGUILayout.RectField("UV", rectValue);
 					if (EditorGUI.EndChangeCheck())
 					{
-						if ((DisplayUnit)displayUnit.intValue == DisplayUnit.Pixels)
+						if (tex != null && (DisplayUnit)displayUnit.intValue == DisplayUnit.Pixels)
 						{
 							rectValue.x /= tex.width;
 							rectValue.y /= tex.height;
@@ -200,8 +207,8 @@ namespace FontEdit
 					GUILayout.FlexibleSpace();
 					if (GUILayout.Button("Delete", GUILayout.MaxWidth(buttonWidth)))
 					{
+						Undo.RegisterCompleteObjectUndo(FontEditWindow.Instance, "Delete font character");
 						FontEditWindow.Instance.DeleteSelected();
-						editor.Update();
 					}
 					EditorGUILayout.EndHorizontal();
 				}
