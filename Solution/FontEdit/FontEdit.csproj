@@ -30,6 +30,15 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="FontEditInspector.cs" />
+    <Compile Include="FontEditWindow.cs" />
+    <Compile Include="UVEditor.cs" />
+    <Compile Include="VertEditor.cs" />
+    <Compile Include="GrabHandles.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="UnicodeName.cs" />
+  </ItemGroup>
+  <ItemGroup>
     <Reference Include="UnityEditor">
       <HintPath>..\..\..\..\..\..\Program Files\Unity\Editor\Data\Managed\UnityEditor.dll</HintPath>
       <Private>False</Private>
@@ -38,15 +47,6 @@
       <HintPath>..\..\..\..\..\..\Program Files\Unity\Editor\Data\Managed\UnityEngine.dll</HintPath>
       <Private>False</Private>
     </Reference>
-  </ItemGroup>
-  <ItemGroup>
-    <Compile Include="FontEditInspector.cs" />
-    <Compile Include="FontEditWindow.cs" />
-    <Compile Include="UVEditor.cs" />
-    <Compile Include="VertEditor.cs" />
-    <Compile Include="GrabHandles.cs" />
-    <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="UnicodeName.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

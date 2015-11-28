@@ -12,14 +12,14 @@ namespace FontEdit
 	{
 		private static readonly string[] fontProperties =
 		{
-			"FontSize", "Ascent",
-			"Kerning", "LineSpacing",
-			"DefaultMaterial"
+			"m_FontSize", "m_Ascent",
+			"m_Kerning", "m_LineSpacing",
+			"m_DefaultMaterial"
 		};
 
 		private static readonly string[] arrayProperties =
 		{
-			"FontNames", "FallbackFonts"
+			"m_FontNames", "m_FallbackFonts"
 		};
 
 		// Automatic drawing of these arrays doesn't work for some reason
@@ -57,12 +57,12 @@ namespace FontEdit
 			EditorGUI.BeginChangeCheck();
 			foreach (var pname in fontProperties)
 			{
-				var p = serializedObject.FindProperty("m_" + pname);
+				var p = serializedObject.FindProperty(pname);
 				EditorGUILayout.PropertyField(p);
 			}
 			foreach (var pname in arrayProperties)
 			{
-				var p = serializedObject.FindProperty("m_" + pname);
+				var p = serializedObject.FindProperty(pname);
 				DrawArray(p);
 			}
 			if(EditorGUI.EndChangeCheck())
@@ -73,11 +73,12 @@ namespace FontEdit
 			// ==== Open window ====
 			if (FontEditWindow.Instance == null)
 			{
-				var br = EditorGUILayout.GetControlRect(false, 40f);
-				if(br.width > 200f)
-					br = new Rect(br.center - new Vector2(100f, 20f), new Vector2(200f, 40f));
-				if(GUI.Button(br, "Open FontEdit window"))
+				GUILayout.BeginHorizontal();
+				GUILayout.FlexibleSpace();
+				if(GUILayout.Button("Open FontEdit window", GUILayout.Width(180f), GUILayout.Height(40f)))
 					FontEditWindow.OpenWindow();
+				GUILayout.FlexibleSpace();
+				GUILayout.EndHorizontal();
 			}
 			else if (!FontEditWindow.Instance.CanEdit)
 			{
@@ -133,6 +134,7 @@ namespace FontEdit
 				var chars = editor.FindProperty("chars");
                 var fontChar = selectionIndex < 0 ? null : chars.GetArrayElementAtIndex(selectionIndex);
 
+				
 				if (fontChar == null)
 				{
 					// ==== Create ====
@@ -174,7 +176,9 @@ namespace FontEdit
 							rectValue.height /= tex.height;
 						}
 						uvRect.rectValue = rectValue;
+						FontEditWindow.Instance.Touch();
 					}
+					EditorGUI.BeginChangeCheck();
 
 					// ==== Rotation ====
 					EditorGUILayout.PropertyField(fontChar.FindPropertyRelative("rotated"));
@@ -186,6 +190,10 @@ namespace FontEdit
 
 					// ==== Advance ====
 					EditorGUILayout.PropertyField(fontChar.FindPropertyRelative("advance"));
+
+					// Detect direct changes
+					if (EditorGUI.EndChangeCheck())
+						FontEditWindow.Instance.Touch();
 
 					// ==== Delete ====
 					EditorGUILayout.BeginHorizontal();

@@ -96,8 +96,7 @@ namespace FontEdit
 			// User input for test string
 			var strRect = new Rect(WindowRect.x, WindowRect.y, WindowRect.width, 16f);
 			testString = EditorGUI.TextField(strRect, testString);
-			// Don't save the test string as an undo (because it's a bit pointless)
-			(new SerializedObject(this)).ApplyModifiedPropertiesWithoutUndo();
+			(new SerializedObject(this)).ApplyModifiedProperties();
 			var hasDrawnVert = false;
 			var origin = WindowRect.position + (Vector2.up*GetAscent());
 			int? newChar = null;

@@ -33,11 +33,11 @@ namespace FontEdit
 			GUI.DrawTexture(r, selection);
 			var width = Mathf.Sign(r.width) * Mathf.Min(Mathf.Abs(r.width), axisLength);
 			var height = Mathf.Sign(r.height) * Mathf.Min(Mathf.Abs(r.height), axisLength);
-			GUI.DrawTexture(new Rect(r.position,
-				new Vector2(rotated ? width : axisWidth, rotated ? axisWidth : height)),
+			GUI.DrawTexture(new Rect(r.x, r.y,
+				rotated ? width : axisWidth, rotated ? axisWidth : height),
 				axisY);
-			GUI.DrawTexture(new Rect(r.position,
-				new Vector2(rotated ? axisWidth : width, rotated ? height : axisWidth)),
+			GUI.DrawTexture(new Rect(r.x, r.y,
+				rotated ? axisWidth : width, rotated ? height : axisWidth),
 				axisX);
 		}
 

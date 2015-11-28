@@ -35,7 +35,7 @@ namespace FontEdit
 		{
 			new GrabHandle // Top left
 			{
-				rect = r => new Rect(r.position, new Vector2(grabBorder, grabBorder)),
+				rect = r => new Rect(r.x, r.y, grabBorder, grabBorder),
 				cursor = MouseCursor.ResizeUpLeft,
 				corners = GrabCorner.XMin | GrabCorner.YMin
 			},

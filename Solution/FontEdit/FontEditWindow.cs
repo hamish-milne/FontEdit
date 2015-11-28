@@ -126,6 +126,12 @@ namespace FontEdit
 			return -1;
 		}
 
+		public void Touch()
+		{
+			if(currentFont != null)
+				changed = true;
+		}
+
 		// =========================
 		// ==== Font properties ====
 		// =========================
@@ -161,18 +167,21 @@ namespace FontEdit
 					chars[i] = new FontCharacter
 					{
 						index = c.index,
-						uv = new Rect(
+						/*uv = new Rect(
 							c.uvBottomLeft.x,
 							c.uvBottomLeft.y,
 							c.uvTopRight.x - c.uvBottomLeft.x,
-							c.uvTopRight.y - c.uvBottomLeft.y),
+							c.uvTopRight.y - c.uvBottomLeft.y),*/
 #pragma warning disable 618
 						// The normal vert properties are mixed in with an inaccessible 'ascent' field
 						// that is presumably set by Unity when it retrieves the data
 						vert = new Rect(c.vert.x, c.vert.y + GetAscent(), c.vert.width, c.vert.height),
+						uv = c.uv,
+						rotated = c.flipped,
+						advance = c.width
 #pragma warning restore 618
-						rotated = Math.Abs(c.uvTopLeft.x - c.uvTopRight.x) < float.Epsilon,
-						advance = c.advance
+						//rotated = Math.Abs(c.uvTopLeft.x - c.uvTopRight.x) < float.Epsilon,
+						//advance = c.advance
 					};
 				}
 			}
@@ -209,17 +218,19 @@ namespace FontEdit
 				currentFont.characterInfo = chars.Select(fc => new CharacterInfo
 				{
 					index = fc.index,
-					uvBottomLeft = fc.uv.min,
-					uvTopRight = fc.uv.max,
+					//uvBottomLeft = fc.uv.min,
+					//uvTopRight = fc.uv.max,
 #pragma warning disable 618
+					uv = fc.uv,
 					// There's no way to set the flipped state without this field :/
 					flipped = fc.rotated,
 					// The normal vert properties are mixed in with an inaccessible 'ascent' field
 					// that is presumably set by Unity when it retrieves the data
 					// (As well as being incredibly difficult to change in general)
 					vert = new Rect(fc.vert.x, fc.vert.y - GetAscent(), fc.vert.width, fc.vert.height),
+					width = fc.advance
 #pragma warning restore 618
-					advance = (int)fc.advance,
+					//advance = (int)fc.advance,
 			}).ToArray();
 				EditorUtility.SetDirty(currentFont);
 				Revert();
@@ -295,16 +306,6 @@ namespace FontEdit
 		// =========================
 		// ==== Message methods ====
 		// =========================
-		public FontEditWindow()
-		{
-			Selection.selectionChanged += SelectionChanged;
-		}
-
-		protected virtual void OnDestroy()
-		{
-			Selection.selectionChanged -= SelectionChanged;
-		}
-
 		private void SelectionChanged()
 		{
 			// Specifically disallow multiple fonts to avoid confusion
@@ -320,23 +321,25 @@ namespace FontEdit
 						Apply();
                 }
 				currentFont = newFont;
+				GetCharacters();
 			}
-			GetCharacters();
 		}
 
 		protected virtual void OnEnable()
 		{
 			Instance = this;
-			SelectionChanged();
 		}
 
 		protected virtual void Update()
 		{
+			// This keeps the editor window responsive
 			Repaint();
 		}
 
 		protected virtual void OnGUI()
 		{
+			// Use this rather than Selection.selectionChanged for compatibility
+			SelectionChanged();
 			InitTextures();
 			var labelStyle = new GUIStyle(EditorStyles.boldLabel) {alignment = TextAnchor.MiddleCenter};
 
@@ -357,7 +360,7 @@ namespace FontEdit
 						DrawUvEditor();
 						break;
 					case WindowMode.Screen:
-						DrawTest();
+						DrawVertPanel();
 						break;
 				}
 			}
