@@ -13,7 +13,7 @@ namespace FontEdit
 		private static readonly string[] fontProperties =
 		{
 			"m_FontSize", "m_Ascent",
-			"m_Kerning", "m_LineSpacing",
+			"m_Kerning", "m_Tracking", "m_LineSpacing",
 			"m_DefaultMaterial"
 		};
 
@@ -58,7 +58,8 @@ namespace FontEdit
 			foreach (var pname in fontProperties)
 			{
 				var p = serializedObject.FindProperty(pname);
-				EditorGUILayout.PropertyField(p);
+				if(p != null)
+					EditorGUILayout.PropertyField(p);
 			}
 			foreach (var pname in arrayProperties)
 			{
@@ -69,6 +70,11 @@ namespace FontEdit
 				foreach(var o in serializedObject.targetObjects)
 					EditorUtility.SetDirty(o);
 			EditorGUILayout.Space();
+
+			// Re-enable controls if this is an asset
+			var isAsset = FontEditWindow.IsFontAsset((Font)serializedObject.targetObject);
+			if (isAsset)
+				EditorGUI.EndDisabledGroup();
 
 			// ==== Open window ====
 			if (FontEditWindow.Instance == null)
@@ -87,11 +93,6 @@ namespace FontEdit
 			else
 			{
 				var editor = new SerializedObject(FontEditWindow.Instance);
-
-				// Re-enable controls if this is an asset
-				var isAsset = FontEditWindow.IsFontAsset((Font)serializedObject.targetObject);
-				if(isAsset)
-					EditorGUI.EndDisabledGroup();
 
 				// ==== Editor control ====
 				EditorGUILayout.BeginHorizontal();
@@ -226,12 +227,13 @@ namespace FontEdit
 					FontEditWindow.Instance.Revert();
 				EditorGUILayout.EndHorizontal();
 				EditorGUI.EndDisabledGroup();
-
-				if(isAsset)
-					EditorGUI.BeginDisabledGroup(true);
 			}
 
+			if (isAsset)
+				EditorGUI.BeginDisabledGroup(true);
+
 			serializedObject.ApplyModifiedProperties();
+			serializedObject.Update();
 		}
 	}
 }

@@ -75,7 +75,7 @@ namespace FontEdit
 				case Status.NotStarted:
 					return "Not started";
 				case Status.Error:
-					return parseError ?? www.error;
+					return "Error: " + (parseError ?? www.error);
 				case Status.Downloading:
 					return "Downloading: " + Mathf.RoundToInt(www.progress*100);
 				}

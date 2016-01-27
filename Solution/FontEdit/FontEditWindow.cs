@@ -153,7 +153,10 @@ namespace FontEdit
 		float GetKerning()
 		{
 			if (kerning == null || kerning.serializedObject.targetObject != currentFont)
-				kerning = (new SerializedObject(currentFont)).FindProperty("m_Kerning");
+			{
+				var sobj = new SerializedObject(currentFont);
+				kerning = sobj.FindProperty("m_Kerning") ?? sobj.FindProperty("m_Tracking");
+			}
 			return kerning.floatValue;
 		}
 
